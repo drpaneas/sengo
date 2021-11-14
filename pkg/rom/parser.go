@@ -1,6 +1,8 @@
 package rom
 
-import "github.com/drpaneas/sengo/pkg/rom/cartridge"
+import (
+	"github.com/drpaneas/sengo/pkg/rom/format"
+)
 
 // parser is the strategy interface that includes the Parse() method
 // which can be extended into support reading ROM of various formats (e.g. iNES, iNES 2.0, e.t.c.)
@@ -12,5 +14,5 @@ type parser interface {
 	// If you want to add another format in the future, you can do it by extending the Parse method.
 	// To do that, create a new file int rom/format folder and then create a struct representing your new specific
 	// parsing strategy. Then put the method Parse to be a member function of this.
-	Parse(rom []byte) cartridge.ContentInSection
+	Parse(rom []byte) format.Sections
 }

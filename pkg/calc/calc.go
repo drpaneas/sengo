@@ -54,13 +54,17 @@ func HexToASCII(str string) string {
 	return string(bs)
 }
 
-func HexToInt(hexStr string) uint64 {
+func HexToInt(hexStr string) int {
 	// remove 0x suffix if found in the input string
 	cleaned := strings.Replace(hexStr, "0x", "", -1)
 
 	// base 16 for hexadecimal
 	result, _ := strconv.ParseUint(cleaned, 16, 64)
-	return uint64(result)
+	return int(result)
+}
+
+func IntToHex(i int) string {
+	return strconv.FormatInt(int64(i), 16)
 }
 
 func BinToInt(binary string) int64 {
@@ -71,4 +75,8 @@ func BinToInt(binary string) int64 {
 		os.Exit(1)
 	}
 	return output
+}
+
+func ByteToInt(b byte) int {
+	return HexToInt(ByteToHex(b))
 }

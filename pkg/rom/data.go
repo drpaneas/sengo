@@ -1,6 +1,6 @@
 package rom
 
-type ContentInType struct {
+type ContentType struct {
 	Binary []string
 	Hex []string
 	Bytes []byte
