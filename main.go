@@ -5,8 +5,10 @@ import (
 	"github.com/drpaneas/sengo/pkg/calc"
 	"github.com/drpaneas/sengo/pkg/rom"
 	"github.com/drpaneas/sengo/pkg/utils"
+	gim "github.com/ozankasikci/go-image-merge"
 	"image"
 	"image/png"
+	"math"
 	"os"
 )
 
@@ -81,12 +83,12 @@ func main() {
 	fmt.Printf("Rom Name: %s\n", r.Name)
 
 	chrrom := r.Content.CHRROM
-	var tileCounter,byteCounter,bitCounter int
+	var tileCounter, byteCounter, bitCounter int
 
 	// Initialize
-	skip := false 		// Skips the next 8 bytes because they are part of the colors
-	var data [][64]uint8	// 8x8 resolution, so 64 pixels in total.
-	data = append(data, [64]uint8{})	// create the starting [0] tile (empty values inside)
+	skip := false                    // Skips the next 8 bytes because they are part of the colors
+	var data [][64]uint8             // 8x8 resolution, so 64 pixels in total.
+	data = append(data, [64]uint8{}) // create the starting [0] tile (empty values inside)
 
 	for k := 0; k+8 < len(chrrom); k++ {
 		if skip {
@@ -148,7 +150,8 @@ func main() {
 	}
 
 	fmt.Printf("There are %v tiles in this CHR ROM\n", tileCounter)
-
+	var wholeGrid, leftGrid, rightGrid []*gim.Grid
+	leftGridCounter :=0 // Required because the leftGrid[254] is not the first element obviously, so $tile var is not good index
 	for tile := 0; tile < tileCounter; tile++ {
 		// Create the canvas dimension and the color palette
 		img := image.NewGray(image.Rect(0, 0, 8, 8)) // Top Left (0,0) and Top Right (8,8) coordinates
@@ -178,7 +181,7 @@ func main() {
 		}
 
 		// outputFile is a File type which satisfies Writer interface
-		filename := fmt.Sprintf("Tile%v-Bank%v.png", tile, bank)
+		filename := fmt.Sprintf("tile%v_Bank%v_%v.png", tile, bank, r.Name)
 		outputFile, err := os.Create(filename)
 		if err != nil {
 			fmt.Println("Error: Couldn't save the image:", filename)
@@ -194,8 +197,102 @@ func main() {
 
 		// Don't forget to close files
 		if err = outputFile.Close(); err != nil {
-			fmt.Println("Error: Cannot close the file (memory leak issue?)")
+			fmt.Printf("Error: Cannot close the file %v (memory leak issue?)\n", filename)
 			os.Exit(1)
 		}
+
+		// Include that for the Grid
+		wholeGrid = append(wholeGrid, &gim.Grid{ImageFilePath: filename})
+		wholeGrid[tile].ImageFilePath = filename
+
+		// Separate for individual banks
+		if bank == "Left" {
+			leftGrid = append(leftGrid, &gim.Grid{ImageFilePath: filename})
+			leftGrid[leftGridCounter].ImageFilePath = filename
+			leftGridCounter++
+		} else {
+			rightGrid = append(rightGrid, &gim.Grid{ImageFilePath: filename})
+			rightGrid[tile].ImageFilePath = filename
+		}
 	}
+
+	// Create grid with all the tile assets from both banks and save it to the disk
+	rgba, err := gim.New(wholeGrid, int(math.Sqrt(float64(tileCounter))), int(math.Sqrt(float64(tileCounter)))).Merge()
+	// rgba, err := gim.New(wholeGrid, 32, 28).Merge()
+
+	if err != nil {
+		fmt.Println("Error: Couldn't create grid")
+		os.Exit(1)
+	}
+	// save the output to png
+	filenameGrid := fmt.Sprintf("grid_%v.png", r.Name)
+	file, err := os.Create(filenameGrid)
+	if err != nil {
+		fmt.Println("Error: Couldn't save the grid image:", file)
+		os.Exit(1)
+	}
+
+	if err = png.Encode(file, rgba); err != nil {
+		fmt.Printf("Error: Couldn't encode the %v image to greyscale\n", file)
+		os.Exit(1)
+	}
+
+	if err = file.Close(); err != nil {
+		fmt.Printf("Error: Cannot close the file %v (memory leak issue?)\n", file)
+		os.Exit(1)
+	}
+
+	// Left Bank Grid
+	rgba, err = gim.New(leftGrid, int(math.Sqrt(float64(tileCounter/2))), int(math.Sqrt(float64(tileCounter/2)))).Merge()
+	//rgba, err = gim.New(leftGrid, 32, 28).Merge()
+	rgba, err = gim.New(leftGrid, 20, 13).Merge()
+
+	if err != nil {
+		fmt.Println("Error: Couldn't create left grid")
+		os.Exit(1)
+	}
+	// save the output to png
+	filenameGrid = fmt.Sprintf("grid_leftbank_%v.png", r.Name)
+	file, err = os.Create(filenameGrid)
+	if err != nil {
+		fmt.Println("Error: Couldn't save the left grid image:", file)
+		os.Exit(1)
+	}
+
+	if err = png.Encode(file, rgba); err != nil {
+		fmt.Printf("Error: Couldn't encode the %v image to greyscale\n", file)
+		os.Exit(1)
+	}
+
+	if err = file.Close(); err != nil {
+		fmt.Printf("Error: Cannot close the file %v (memory leak issue?)\n", file)
+		os.Exit(1)
+	}
+
+	// Right Bank Grid
+	rgba, err = gim.New(rightGrid, int(math.Sqrt(float64(tileCounter/2))), int(math.Sqrt(float64(tileCounter/2)))).Merge()
+	//rgba, err = gim.New(rightGrid, 32, 28).Merge()
+
+	if err != nil {
+		fmt.Println("Error: Couldn't create left grid")
+		os.Exit(1)
+	}
+	// save the output to jpg or png
+	filenameGrid = fmt.Sprintf("grid_rightbank_%v.png", r.Name)
+	file, err = os.Create(filenameGrid)
+	if err != nil {
+		fmt.Println("Error: Couldn't save the left grid image:", file)
+		os.Exit(1)
+	}
+
+	if err = png.Encode(file, rgba); err != nil {
+		fmt.Printf("Error: Couldn't encode the %v image to greyscale\n", file)
+		os.Exit(1)
+	}
+
+	if err = file.Close(); err != nil {
+		fmt.Printf("Error: Cannot close the file %v (memory leak issue?)\n", file)
+		os.Exit(1)
+	}
+
 }
