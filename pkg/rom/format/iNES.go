@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/drpaneas/sengo/pkg/calc"
 	"hash/crc32"
+	"os"
 )
 
 // INES is a sub-class of Sections
@@ -184,6 +185,23 @@ func (i INES) Parse(romDump []byte) Sections {
 	fmt.Printf("PRGROM: (%v-%v) or (%v-%v)\n", len(header)-1+1, len(header)-1+1-1+len(prgrom), calc.IntToHex(len(header)-1+1), calc.IntToHex(len(header)-1+1-1+len(prgrom)))
 	fmt.Printf("CHRROM: (%v-%v) or (%v-%v)\n", len(header)-1+1-1+len(prgrom)+1, len(header)-1+1-1+len(prgrom)+1-1+len(chrrom),calc.IntToHex(len(header)-1+1-1+len(prgrom)+1), calc.IntToHex(len(header)-1+1-1+len(prgrom)+1-1+len(chrrom)))
 	fmt.Printf("PRGRAM: (%v-%v)\n", 24576, 24576-1+sizeOfPrgRam*8*1024)
+
+	if err := os.WriteFile("header.bin",header,0644); err != nil {
+		fmt.Println("Cannot save header.bin")
+	}
+
+	if err := os.WriteFile("PRGROM.bin",prgrom,0644); err != nil {
+		fmt.Println("Cannot save PRGROM.bin")
+	}
+
+	if err := os.WriteFile("CHRROM.bin",chrrom,0644); err != nil {
+		fmt.Println("Cannot save CHRROM.bin")
+	}
+
+	if err := os.WriteFile("PRGRAM.bin",pgrram,0644); err != nil {
+		fmt.Println("Cannot save PRGRAM.bin")
+	}
+
 
 	return Sections{
 		Header:            header,
