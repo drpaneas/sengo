@@ -1,15 +1,19 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
-	"github.com/drpaneas/sengo/pkg/calc"
-	"github.com/drpaneas/sengo/pkg/rom"
-	"github.com/drpaneas/sengo/pkg/utils"
+	"github.com/drpaneas/ines"
+	"github.com/drpaneas/sengo/internal/calc"
+	"github.com/drpaneas/sengo/internal/utils"
 	gim "github.com/ozankasikci/go-image-merge"
+	"hash/crc32"
 	"image"
 	"image/png"
 	"math"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 func printTile(t [64]uint8) {
@@ -76,14 +80,39 @@ func merge(graphics uint8, colors uint8) [8]uint8 {
 
 func main() {
 	romFilepath := utils.GetRomFilepathFromUser()
-	r := rom.Open(romFilepath)
+	rom := ines.Decode(utils.ReadRom(romFilepath))
 
-	fmt.Println("ROM Properties:", r.File.Path)
-	fmt.Printf("ROM Size: %d bytes\n", r.File.Size)
-	fmt.Printf("Rom Name: %s\n", r.Name)
-
-	chrrom := r.Content.CHRROM
+	chrrom := rom.CharacterRom
 	var tileCounter, byteCounter, bitCounter int
+	fmt.Printf("Header         : %s (%s)\n", strings.ToUpper(hex.EncodeToString(rom.Header)), rom.HeaderType)
+	a := strings.ToUpper(fmt.Sprintf("%08x", crc32.Checksum(rom.Headerless, crc32.IEEETable)))
+	fmt.Printf("ROM Size       : %v KB (CRC: %v)\n", len(rom.Headerless)/1024, a)
+	fmt.Printf("Trainer Size   : %v KB\n", len(rom.Trainer)/1024)
+	a = strings.ToUpper(fmt.Sprintf("%08x", crc32.Checksum(rom.ProgramRom, crc32.IEEETable)))
+	fmt.Printf("PRG-ROM Size   : %v KB (CRC: %v)\n", len(rom.ProgramRom)/1024, a)
+	a = strings.ToUpper(fmt.Sprintf("%08x", crc32.Checksum(rom.CharacterRom, crc32.IEEETable)))
+	fmt.Printf("CHR-ROM Size   : %v KB (CRC: %v)\n", len(rom.CharacterRom)/1024, a)
+	fmt.Printf("Misc-ROM Size  : %v KB\n", len(rom.MiscRom)/1024)
+	fmt.Println("----")
+	fmt.Printf("PRG-RAM Size   : %v KB\n", len(rom.ProgramRam)/1024)
+	fmt.Printf("CHR-RAM Size   : %v KB\n", len(rom.CharacterRam)/1024)
+	fmt.Println("----")
+	fmt.Printf("PRG-NVRAM Size : %v KB\n", len(rom.ProgramNVRam)/1024)
+	fmt.Printf("CHR-NVRAM Size : %v KB\n", len(rom.CharacterNVRam)/1024)
+	fmt.Println("----")
+	fmt.Printf("Mapper         : %v\n", rom.Mapper)
+	fmt.Printf("Submapper      : %v\n", rom.SubMapper)
+	fmt.Printf("Mirroring      : %v\n", rom.Mirroring)
+	battery := "No"
+	if rom.HasBattery {
+		battery = "Yes"
+	}
+	fmt.Printf("Battery        : %s\n", battery)
+	fmt.Println("----")
+	fmt.Printf("TV System      : %v\n", rom.TVSystem)
+	fmt.Printf("Console        : %v\n", rom.ConsoleType)
+	fmt.Printf("Exp. Device    : %v\n", rom.ExpansionDevice)
+	fmt.Printf("CPU/PPU Timing : %v\n", rom.CPUPPUTiming)
 
 	// Initialize
 	skip := false                    // Skips the next 8 bytes because they are part of the colors
@@ -149,9 +178,15 @@ func main() {
 		data[i] = fixTile(data[i])
 	}
 
+	if len(rom.CharacterRom) == 0 {
+		fmt.Println("---")
+		fmt.Println("CHR-ROM is empty! Cannot extract tileset!")
+		os.Exit(1)
+	}
 	fmt.Printf("There are %v tiles in this CHR ROM\n", tileCounter)
+
 	var wholeGrid, leftGrid, rightGrid []*gim.Grid
-	leftGridCounter :=0 // Required because the leftGrid[254] is not the first element obviously, so $tile var is not good index
+	leftGridCounter := 0 // Required because the leftGrid[254] is not the first element obviously, so $tile var is not good index
 	for tile := 0; tile < tileCounter; tile++ {
 		// Create the canvas dimension and the color palette
 		img := image.NewGray(image.Rect(0, 0, 8, 8)) // Top Left (0,0) and Top Right (8,8) coordinates
@@ -181,7 +216,7 @@ func main() {
 		}
 
 		// outputFile is a File type which satisfies Writer interface
-		filename := fmt.Sprintf("tile%v_Bank%v_%v.png", tile, bank, r.Name)
+		filename := fmt.Sprintf("tile%v_Bank%v_%v.png", tile, bank, filepath.Base(romFilepath))
 		outputFile, err := os.Create(filename)
 		if err != nil {
 			fmt.Println("Error: Couldn't save the image:", filename)
@@ -225,7 +260,7 @@ func main() {
 		os.Exit(1)
 	}
 	// save the output to png
-	filenameGrid := fmt.Sprintf("grid_%v.png", r.Name)
+	filenameGrid := fmt.Sprintf("grid_%v.png", filepath.Base(romFilepath))
 	file, err := os.Create(filenameGrid)
 	if err != nil {
 		fmt.Println("Error: Couldn't save the grid image:", file)
@@ -252,7 +287,7 @@ func main() {
 		os.Exit(1)
 	}
 	// save the output to png
-	filenameGrid = fmt.Sprintf("grid_leftbank_%v.png", r.Name)
+	filenameGrid = fmt.Sprintf("grid_leftbank_%v.png", filepath.Base(romFilepath))
 	file, err = os.Create(filenameGrid)
 	if err != nil {
 		fmt.Println("Error: Couldn't save the left grid image:", file)
@@ -278,7 +313,7 @@ func main() {
 		os.Exit(1)
 	}
 	// save the output to jpg or png
-	filenameGrid = fmt.Sprintf("grid_rightbank_%v.png", r.Name)
+	filenameGrid = fmt.Sprintf("grid_rightbank_%v.png", filepath.Base(romFilepath))
 	file, err = os.Create(filenameGrid)
 	if err != nil {
 		fmt.Println("Error: Couldn't save the left grid image:", file)

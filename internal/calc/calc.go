@@ -3,7 +3,7 @@ package calc
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/drpaneas/sengo/pkg/utils"
+	"github.com/drpaneas/sengo/internal/utils"
 	"os"
 	"strconv"
 	"strings"
